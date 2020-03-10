@@ -14,49 +14,6 @@ namespace testImageDetection
 {
     class ImageDetectorByContour
     {
-        public static void FindMatch(string imageFile, string templateFile)
-        {
-            VectorOfKeyPoint modelKeyPoints; VectorOfKeyPoint observedKeyPoints; VectorOfVectorOfDMatch matches = new VectorOfVectorOfDMatch(); Mat mask; Mat homography;
-
-            Mat modelImage = new Mat(templateFile);
-            Mat observedImage = new Mat(imageFile);
-
-            homography = null;
-          const  int k = 2;
-            const double uniquenessThreshold = 0.90;
-            using (UMat uModelImage = modelImage.GetUMat(AccessType.Read))
-            using (UMat uObservedImage = observedImage.GetUMat(AccessType.Read))
-            {
-                var featureDetector = new ORBDetector();
-                Mat modelDescriptors = new Mat();
-                modelKeyPoints = new VectorOfKeyPoint();
-                featureDetector.DetectAndCompute(uModelImage, null, modelKeyPoints, modelDescriptors, false);
-                Mat observedDescriptors = new Mat();
-                observedKeyPoints = new VectorOfKeyPoint();
-                featureDetector.DetectAndCompute(uObservedImage, null, observedKeyPoints, observedDescriptors, false);
-                using (BFMatcher matcher = new BFMatcher(DistanceType.Hamming, false))
-                {                   
-                    matcher.Add(modelDescriptors);
-
-                    matcher.KnnMatch(observedDescriptors, matches, k);
-                    mask = new Mat(matches.Size, 1, DepthType.Cv8U, 1);
-                    mask.SetTo(new MCvScalar(255));
-                    Features2DToolbox.VoteForUniqueness(matches, uniquenessThreshold, mask);
-
-                   // matches[0][0].Distance
-
-                    int nonZeroCount = CvInvoke.CountNonZero(mask);
-                    if (nonZeroCount >= 4)
-                    {
-                        nonZeroCount = Features2DToolbox.VoteForSizeAndOrientation(modelKeyPoints, observedKeyPoints, matches, mask, 1.5, 20);
-                        if (nonZeroCount >= 4)
-                            homography = Features2DToolbox.GetHomographyMatrixFromMatchedFeatures(modelKeyPoints,
-                                observedKeyPoints, matches, mask, 2);
-                    }
-                }
-            }
-        }
-
         static private bool DetectSimilarImage()
         {
             using (Image<Gray, byte> inputImage = new Image<Gray, byte>(@"c:\\temp\pp3.png"))
@@ -86,17 +43,45 @@ namespace testImageDetection
             return false;
         }
 
-        static public bool DetectSimilarImage2(string imageFile, string templateFile)
+        static public bool DetectSimilarImage2(string pageFile, string templateFile)
         {
-            VectorOfVectorOfPoint imageContours = getContours(imageFile, out Mat imageContoursHierachy, out Image<Gray, byte> image);
+            VectorOfVectorOfPoint pageContours = getContours(pageFile, out Mat pageContoursHierachy, out Image<Gray, byte> image);
            // Image<Gray, byte> justCountor = new Image<Gray, byte>(384, 284, new Gray(255)); 
-            MainForm.This.PageBox.Image = drawContours(image, imageContours);
+            MainForm.This.PageBox.Image = drawContours(image, pageContours);
 
              VectorOfVectorOfPoint templateContours = getContours(templateFile, out Mat templateContoursHierachy, out Image<Gray, byte> template);
             Emgu.CV.CvInvoke.DrawContours(template, templateContours, -1, new MCvScalar(255, 0, 0), 1);
             MainForm.This.TemplateBox.Image = drawContours(template, templateContours);
 
+            return compareContours(pageContours, pageContoursHierachy, templateContours, templateContoursHierachy);
+        }
+
+        static private bool compareContours(VectorOfVectorOfPoint pageContours, Mat pageContoursHierachy, VectorOfVectorOfPoint templateContours, Mat templateContoursHierachy)
+        {
+            Array templateCH = templateContoursHierachy.GetData();
+            int templateCHLength = templateCH.GetLength(1);
+            Array pageCH = pageContoursHierachy.GetData();
+            int pageCHLength = pageCH.GetLength(1);
+            for (int i = 0; i < templateCHLength; i++)
+            {
+                if (-1 < (int)templateCH.GetValue(0, i, HierarchyKey.Parent))
+                    continue;
+                double m = 0;
+                for (int j = 0; j < pageCHLength; j++)
+                {
+                    //double m = Emgu.CV.CvInvoke.MatchShapes(templateContours[i], pageContours[j], ContoursMatchType.I3);
+
+                }
+            }
             return false;
+        }
+
+        class HierarchyKey
+        {
+            public const int NextSibling = 0;
+            public const int PreviousSibling = 1;
+            public const int FirstChild = 2;
+            public const int Parent = 3;
         }
 
         static private Bitmap drawContours(Image<Gray, byte> image, VectorOfVectorOfPoint contours)
