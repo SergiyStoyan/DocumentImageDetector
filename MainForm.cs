@@ -1,0 +1,31 @@
+﻿using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Data;
+using System.Drawing;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.Windows.Forms;
+
+namespace testImageDetection
+{
+    public partial class MainForm : Form
+    {
+        static MainForm()
+        {
+            This = new MainForm();
+        }
+
+        public MainForm()
+        {
+            InitializeComponent();
+
+            Load += delegate {
+              ImageDetectorByContour.DetectSimilarImage2(@"c:\\temp\pp2.png", @"c:\\temp\ppt.png");
+            };
+        }
+
+        public static readonly MainForm This;
+    }
+}
