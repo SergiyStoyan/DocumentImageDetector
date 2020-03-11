@@ -23,7 +23,7 @@ namespace testImageDetection
 
             Load += delegate {
               //ImageDetectorByContour.FindMatch(@"c:\\temp\mf.png", @"c:\\temp\ppt.png");
-                ImageDetectorByKeyPoints.FindMatch2(@"c:\\temp\mf.png", @"c:\\temp\ppt.png");
+                ImageDetectorByKeyPoints.FindMatch(@"c:\\temp\pp3.png", @"c:\\temp\ppt.png");
             };
         }
 
