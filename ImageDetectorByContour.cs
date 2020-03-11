@@ -14,43 +14,41 @@ namespace testImageDetection
 {
     class ImageDetectorByContour
     {
-        static private bool DetectSimilarImage()
-        {
-            using (Image<Gray, byte> inputImage = new Image<Gray, byte>(@"c:\\temp\pp3.png"))
-            {
-                using (Image<Gray, byte> templateImage = new Image<Gray, byte>(@"c:\\temp\ppt.png"))
-                {
-                    using (Image<Gray, float> match = inputImage.MatchTemplate(templateImage, TemplateMatchingType.Ccoeff))
-                    {
-                        //match.ROI = new Rectangle(templateImage.Width, templateImage.Height, inputImage.Width, inputImage.Height);
+        //static private bool DetectSimilarImage()
+        //{
+        //    using (Image<Gray, byte> inputImage = new Image<Gray, byte>(@"c:\\temp\pp3.png"))
+        //    {
+        //        using (Image<Gray, byte> templateImage = new Image<Gray, byte>(@"c:\\temp\ppt.png"))
+        //        {
+        //            using (Image<Gray, float> match = inputImage.MatchTemplate(templateImage, TemplateMatchingType.Ccoeff))
+        //            {
+        //                //match.ROI = new Rectangle(templateImage.Width, templateImage.Height, inputImage.Width, inputImage.Height);
 
-                        Point[] MAX_Loc, Min_Loc;
-                        double[] min, max;
-                        match.MinMax(out min, out max, out Min_Loc, out MAX_Loc);
+        //                Point[] MAX_Loc, Min_Loc;
+        //                double[] min, max;
+        //                match.MinMax(out min, out max, out Min_Loc, out MAX_Loc);
 
-                        using (Image<Gray, double> RG_Image = match.Convert<Gray, double>().Copy())
-                        {
-                            if (max[0] > 0.85)
-                            {
-                                //Object_Location = MAX_Loc[0];
-                                return true;
-                            }
-                        }
+        //                using (Image<Gray, double> RG_Image = match.Convert<Gray, double>().Copy())
+        //                {
+        //                    if (max[0] > 0.85)
+        //                    {
+        //                        //Object_Location = MAX_Loc[0];
+        //                        return true;
+        //                    }
+        //                }
 
-                    }
-                }
-            }
-            return false;
-        }
+        //            }
+        //        }
+        //    }
+        //    return false;
+        //}
 
-        static public bool DetectSimilarImage2(string pageFile, string templateFile)
+        static public bool FindMatch(string pageFile, string templateFile)
         {
             VectorOfVectorOfPoint pageContours = getContours(pageFile, out Mat pageContoursHierachy, out Image<Gray, byte> image);
-           // Image<Gray, byte> justCountor = new Image<Gray, byte>(384, 284, new Gray(255)); 
             MainForm.This.PageBox.Image = drawContours(image, pageContours);
 
-             VectorOfVectorOfPoint templateContours = getContours(templateFile, out Mat templateContoursHierachy, out Image<Gray, byte> template);
-            Emgu.CV.CvInvoke.DrawContours(template, templateContours, -1, new MCvScalar(255, 0, 0), 1);
+            VectorOfVectorOfPoint templateContours = getContours(templateFile, out Mat templateContoursHierachy, out Image<Gray, byte> template);
             MainForm.This.TemplateBox.Image = drawContours(template, templateContours);
 
             return compareContours(pageContours, pageContoursHierachy, templateContours, templateContoursHierachy);
@@ -107,16 +105,22 @@ namespace testImageDetection
 
         static private VectorOfVectorOfPoint getContours(string imageFile, out Mat hierachy, out Image<Gray, byte> image)
         {
-            image = new Image<Gray, byte>(imageFile);
+            image = getPreprocessedImage(imageFile);
+            VectorOfVectorOfPoint contours = new VectorOfVectorOfPoint();
+            hierachy = new Mat();
+            Emgu.CV.CvInvoke.FindContours(image, contours, hierachy, RetrType.Tree, ChainApproxMethod.ChainApproxSimple);
+            return contours;
+        }
+
+        static private Image<Gray, byte> getPreprocessedImage(string imageFile)
+        {
+            Image<Gray, byte> image = new Image<Gray, byte>(imageFile);
             //Emgu.CV.CvInvoke.Blur(image, image, new Size(10, 10), new Point(0, 0));
             //Emgu.CV.CvInvoke.Threshold(image, image, 60, 255, ThresholdType.Otsu | ThresholdType.Binary);
             //Emgu.CV.CvInvoke.Erode(image, image, null, new Point(-1, -1), 1, BorderType.Constant, CvInvoke.MorphologyDefaultBorderValue);
             CvInvoke.Dilate(image, image, null, new Point(-1, -1), 1, BorderType.Constant, CvInvoke.MorphologyDefaultBorderValue);
             CvInvoke.Canny(image, image, 100, 30, 3);
-            VectorOfVectorOfPoint contours = new VectorOfVectorOfPoint();
-            hierachy = new Mat();
-            Emgu.CV.CvInvoke.FindContours(image, contours, hierachy, RetrType.Tree, ChainApproxMethod.ChainApproxSimple);
-            return contours;
+            return image;
         }
     }
 }

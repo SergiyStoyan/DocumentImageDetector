@@ -14,26 +14,38 @@ namespace testImageDetection
 {
     class ImageDetectorByKeyPoints
     {
-        public static void FindMatch(string imageFile, string templateFile)
+        static private Image<Gray, byte> getPreprocessedImage(string imageFile)
+        {
+            Image<Gray, byte> image = new Image<Gray, byte>(imageFile);
+            //Emgu.CV.CvInvoke.Blur(image, image, new Size(10, 10), new Point(0, 0));
+            //Emgu.CV.CvInvoke.Threshold(image, image, 60, 255, ThresholdType.Otsu | ThresholdType.Binary);
+            //Emgu.CV.CvInvoke.Erode(image, image, null, new Point(-1, -1), 1, BorderType.Constant, CvInvoke.MorphologyDefaultBorderValue);
+            CvInvoke.Dilate(image, image, null, new Point(-1, -1), 1, BorderType.Constant, CvInvoke.MorphologyDefaultBorderValue);
+            //CvInvoke.Canny(image, image, 100, 30, 3);
+            return image;
+        }
+
+        public static void FindMatch(string pageFile, string templateFile)
         {
             VectorOfKeyPoint modelKeyPoints; VectorOfKeyPoint observedKeyPoints; VectorOfVectorOfDMatch matches = new VectorOfVectorOfDMatch(); Mat mask; Mat homography;
 
-            Mat modelImage = new Mat(templateFile);
-            Mat observedImage = new Mat(imageFile);
+            Image<Gray, byte> page = getPreprocessedImage(pageFile);
+            Image<Gray, byte> template = getPreprocessedImage(templateFile);
+
+            //Mat modelImage = new Mat(templateFile);
+            //Mat observedImage = new Mat(pageFile);
 
             homography = null;
             const int k = 2;
             const double uniquenessThreshold = 0.90;
-            using (UMat uModelImage = modelImage.GetUMat(AccessType.Read))
-            using (UMat uObservedImage = observedImage.GetUMat(AccessType.Read))
             {
                 var featureDetector = new ORBDetector();// ORBDetector();
                 Mat modelDescriptors = new Mat();
                 modelKeyPoints = new VectorOfKeyPoint();
-                featureDetector.DetectAndCompute(uModelImage, null, modelKeyPoints, modelDescriptors, false);
+                featureDetector.DetectAndCompute(template, null, modelKeyPoints, modelDescriptors, false);
                 Mat observedDescriptors = new Mat();
                 observedKeyPoints = new VectorOfKeyPoint();
-                featureDetector.DetectAndCompute(uObservedImage, null, observedKeyPoints, observedDescriptors, false);
+                featureDetector.DetectAndCompute(page, null, observedKeyPoints, observedDescriptors, false);
                 using (BFMatcher matcher = new BFMatcher(DistanceType.Hamming, false))
                 {
                     matcher.Add(modelDescriptors);
@@ -53,6 +65,41 @@ namespace testImageDetection
                             homography = Features2DToolbox.GetHomographyMatrixFromMatchedFeatures(modelKeyPoints, observedKeyPoints, matches, mask, 2);
                     }
                 }
+            }
+        }
+
+        public static void FindMatch2(string pageFile, string templateFile)
+        {
+
+            Image<Gray, byte> page = getPreprocessedImage(pageFile);
+            Image<Gray, byte> template = getPreprocessedImage(templateFile);
+
+            FastFeatureDetector fastFeatureDetector = new FastFeatureDetector(15);
+            VectorOfKeyPoint templateKeyPoints = new VectorOfKeyPoint();
+            Mat templateDescriptors = new Mat();
+            fastFeatureDetector.DetectAndCompute(template, null, templateKeyPoints, templateDescriptors, false);
+
+            VectorOfKeyPoint pageKeyPoints = new VectorOfKeyPoint();
+            Mat pageDescriptors = new Mat();
+            fastFeatureDetector.DetectAndCompute(page, null, pageKeyPoints, pageDescriptors, false);
+
+            using (BFMatcher matcher = new BFMatcher(DistanceType.L2))
+            {
+                matcher.Add(templateDescriptors);
+                VectorOfDMatch matches = new VectorOfDMatch();
+                matcher.Match(pageDescriptors, matches);
+
+                //const double uniquenessThreshold = 0.90;
+                //Mat mask;
+                //Features2DToolbox.VoteForUniqueness(matches, uniquenessThreshold, mask);                    
+                //int nonZeroCount = CvInvoke.CountNonZero(mask);
+                //if (nonZeroCount >= 4)
+                //{
+                //    nonZeroCount = Features2DToolbox.VoteForSizeAndOrientation(templateKeyPoints, pageKeyPoints, matches, mask, 1.5, 20);
+                //Mat homography = null;
+                //    if (nonZeroCount >= 4)
+                //        homography = Features2DToolbox.GetHomographyMatrixFromMatchedFeatures(templateKeyPoints, pageKeyPoints, matches, mask, 2);
+                //}
             }
         }
     }

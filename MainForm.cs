@@ -22,8 +22,8 @@ namespace testImageDetection
             InitializeComponent();
 
             Load += delegate {
-              //ImageDetectorByContour.DetectSimilarImage2(@"c:\\temp\pp2.png", @"c:\\temp\ppt.png");
-                ImageDetectorByKeyPoints.FindMatch(@"c:\\temp\mf.png", @"c:\\temp\ppt.png");
+              //ImageDetectorByContour.FindMatch(@"c:\\temp\mf.png", @"c:\\temp\ppt.png");
+                ImageDetectorByKeyPoints.FindMatch2(@"c:\\temp\mf.png", @"c:\\temp\ppt.png");
             };
         }
 
