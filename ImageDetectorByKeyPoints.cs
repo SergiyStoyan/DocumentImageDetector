@@ -49,7 +49,7 @@ namespace testImageDetection
 
                 matcher.KnnMatch(pageDescriptors, matches, 2, null);
 
-                Mat            mask = new Mat(matches.Size, 1, DepthType.Cv8U, 1);
+                Mat mask = new Mat(matches.Size, 1, DepthType.Cv8U, 1);
                 mask.SetTo(new MCvScalar(255));
                 Features2DToolbox.VoteForUniqueness(matches, 0.8, mask);
                 Mat homography = new Mat();
@@ -68,6 +68,16 @@ namespace testImageDetection
 
                 MainForm.This.PageBox.Image = result.ToBitmap();
             }
+        }
+
+
+        static private VectorOfVectorOfPoint getContours(string imageFile, out Mat hierachy, out Image<Rgb, byte> image)
+        {
+            image = getPreprocessedImage(imageFile);
+            VectorOfVectorOfPoint contours = new VectorOfVectorOfPoint();
+            hierachy = new Mat();
+            Emgu.CV.CvInvoke.FindContours(image, contours, hierachy, RetrType.Tree, ChainApproxMethod.ChainApproxSimple);
+            return contours;
         }
     }
 }

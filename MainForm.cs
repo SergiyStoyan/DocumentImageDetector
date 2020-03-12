@@ -22,8 +22,10 @@ namespace testImageDetection
             InitializeComponent();
 
             Load += delegate {
-              //ImageDetectorByContour.FindMatch(@"c:\\temp\mf.png", @"c:\\temp\ppt.png");
-                ImageDetectorByKeyPoints.FindMatch(@"c:\\temp\pp3.png", @"c:\\temp\ppt.png");
+                ImageDetectorByContour idbc = new ImageDetectorByContour(@"c:\\temp\bt.png");
+                idbc.FindOnPage(@"c:\\temp\b.png");
+                //ImageDetectorByKeyPoints.FindMatch(@"c:\\temp\pp3.png", @"c:\\temp\ppt.png");
+                //ImageDetectorByTemplate.FindMatch(@"c:\\temp\b.png", @"c:\\temp\bt.png");
             };
         }
 

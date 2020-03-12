@@ -14,73 +14,183 @@ namespace testImageDetection
 {
     class ImageDetectorByContour
     {
-        //static private bool DetectSimilarImage()
-        //{
-        //    using (Image<Gray, byte> inputImage = new Image<Gray, byte>(@"c:\\temp\pp3.png"))
-        //    {
-        //        using (Image<Gray, byte> templateImage = new Image<Gray, byte>(@"c:\\temp\ppt.png"))
-        //        {
-        //            using (Image<Gray, float> match = inputImage.MatchTemplate(templateImage, TemplateMatchingType.Ccoeff))
-        //            {
-        //                //match.ROI = new Rectangle(templateImage.Width, templateImage.Height, inputImage.Width, inputImage.Height);
-
-        //                Point[] MAX_Loc, Min_Loc;
-        //                double[] min, max;
-        //                match.MinMax(out min, out max, out Min_Loc, out MAX_Loc);
-
-        //                using (Image<Gray, double> RG_Image = match.Convert<Gray, double>().Copy())
-        //                {
-        //                    if (max[0] > 0.85)
-        //                    {
-        //                        //Object_Location = MAX_Loc[0];
-        //                        return true;
-        //                    }
-        //                }
-
-        //            }
-        //        }
-        //    }
-        //    return false;
-        //}
-
-        static public bool FindMatch(string pageFile, string templateFile)
+        public ImageDetectorByContour(string templateFile)
         {
-            VectorOfVectorOfPoint pageContours = getContours(pageFile, out Mat pageContoursHierachy, out Image<Gray, byte> image);
-            MainForm.This.PageBox.Image = drawContours(image, pageContours);
-
-            VectorOfVectorOfPoint templateContours = getContours(templateFile, out Mat templateContoursHierachy, out Image<Gray, byte> template);
-            MainForm.This.TemplateBox.Image = drawContours(template, templateContours);
-
-            return compareContours(pageContours, pageContoursHierachy, templateContours, templateContoursHierachy);
+            template = new ContouredImage(templateFile);
+            MainForm.This.TemplateBox.Image = drawContours(template.GreyImage, template.CvContours);
         }
+        ContouredImage template;
 
-        static private bool compareContours(VectorOfVectorOfPoint pageContours, Mat pageContoursHierachy, VectorOfVectorOfPoint templateContours, Mat templateContoursHierachy)
+        public bool FindOnPage(string pageFile)
         {
-            Array templateCH = templateContoursHierachy.GetData();
-            int templateCHLength = templateCH.GetLength(1);
-            Array pageCH = pageContoursHierachy.GetData();
-            int pageCHLength = pageCH.GetLength(1);
-            for (int i = 0; i < templateCHLength; i++)
-            {
-                if (-1 < (int)templateCH.GetValue(0, i, HierarchyKey.Parent))
-                    continue;
-                double m = 0;
-                for (int j = 0; j < pageCHLength; j++)
-                {
-                    //double m = Emgu.CV.CvInvoke.MatchShapes(templateContours[i], pageContours[j], ContoursMatchType.I3);
+            ContouredImage page = new ContouredImage(pageFile);
 
+            float minTemplateContourLength = Math.Max(template.GreyImage.Width, template.GreyImage.Height) / 10;
+
+            List<Match> matches = new List<Match>();
+            int consideredTeplateContoursCount = 0;
+            VectorOfVectorOfPoint matchedContours = new VectorOfVectorOfPoint();
+            foreach (Contour templateC in template.RobustContours)//.OrderByDescending(x => x.Points.Size))
+            {
+                //if (templateC.ParentId > -1)
+                //    continue;
+                //if (templateC.Length < minTemplateContourLength)
+                //    continue;
+                consideredTeplateContoursCount++;
+                foreach (Contour pageC in page.RobustContours)
+                {
+                    Match m = new Match(templateC, pageC);
+                    if (m.CvMatch > 0.2)
+                        continue;
+                    if (m.Angle > 10)
+                        continue;
+                    if (m.Scale < 0.9 || m.Scale > 1 / 0.9)
+                        continue;
+                    matches.Add(m);
+                    matchedContours.Push(pageC.Points);
                 }
             }
+            //float currentAngle = 0;
+            //float currentScale = 0;
+            //foreach(Match m in matches)
+            //{
+
+            //}
+            MainForm.This.PageBox.Image = drawContours(page.GreyImage, matchedContours);
+            if (matches.Count / consideredTeplateContoursCount > 0.5)
+                return true;
             return false;
         }
 
-        class HierarchyKey
+        class Match
         {
-            public const int NextSibling = 0;
-            public const int PreviousSibling = 1;
-            public const int FirstChild = 2;
-            public const int Parent = 3;
+            public Match(Contour templateC, Contour pageC)
+            {
+                TemplateC = templateC;
+                PageC = pageC;
+                
+
+            }
+            public readonly Contour TemplateC;
+            public readonly Contour PageC;
+
+            public  double CvMatch
+            {
+                get
+                {
+                    if (_CvMatch == double.MinValue)
+                        _CvMatch = Emgu.CV.CvInvoke.MatchShapes(TemplateC.Points, PageC.Points, ContoursMatchType.I2);
+                    return _CvMatch;
+                }
+            }
+            double _CvMatch = double.MinValue;
+
+            public float Angle
+            {
+                get
+                {
+                    if (_Angle == float.MinValue)
+                        _Angle = Math.Abs(TemplateC.RotatedRect.Angle - PageC.RotatedRect.Angle);
+                    return _Angle;
+                }
+            }
+            float _Angle = float.MinValue;
+
+            public float Scale
+            {
+                get
+                {
+                    if (_Scale == float.MinValue)
+                        _Scale = TemplateC.Length / PageC.Length;
+                    return _Scale;
+                }
+            }
+            float _Scale = float.MinValue;
         }
+
+        class ContouredImage
+        {
+            public ContouredImage(string imageFile)
+            {
+                GreyImage = getPreprocessedImage(imageFile);
+                Emgu.CV.CvInvoke.FindContours(GreyImage, CvContours, Hierarchy, RetrType.Tree, ChainApproxMethod.ChainApproxSimple);
+
+                Array hierarchy = Hierarchy.GetData();
+                for (int i = 0; i < CvContours.Size; i++)
+                    Contours.Add(new Contour(hierarchy, i, CvContours[i]));
+
+                RobustContours = Contours.Where(x => x.Points.Size >= 10).ToList();//!!!RotatedRect cannot be calculated for Points.Size < 5
+            }
+            public readonly Image<Gray, byte> GreyImage;
+            public readonly VectorOfVectorOfPoint CvContours = new VectorOfVectorOfPoint();
+            public readonly Mat Hierarchy=new Mat();
+            public readonly List<Contour> Contours = new List<Contour>();
+            public readonly List<Contour> RobustContours;
+        }
+
+        class Contour
+        {
+            public Contour(Array hierarchy, int i,VectorOfPoint points)
+            {
+                I = i;
+                Points = points;
+                NextSiblingId = (int)hierarchy.GetValue(0, i, HierarchyKey.NextSibling);
+                PreviousSiblingId = (int)hierarchy.GetValue(0, i, HierarchyKey.PreviousSibling);
+                FirstChildId = (int)hierarchy.GetValue(0, i, HierarchyKey.FirstChild);
+                ParentId = (int)hierarchy.GetValue(0, i, HierarchyKey.Parent);
+            }
+            class HierarchyKey
+            {
+                public const int NextSibling = 0;
+                public const int PreviousSibling = 1;
+                public const int FirstChild = 2;
+                public const int Parent = 3;
+            }
+
+            public readonly int I;
+            public readonly VectorOfPoint Points;
+
+            public readonly int NextSiblingId = 0;
+            public readonly int PreviousSiblingId = 1;
+            public readonly int FirstChildId = 2;
+            public readonly int ParentId = 3;
+
+            public RotatedRect RotatedRect
+            {
+                get
+                {
+                    if (_RotatedRect.Size == RotatedRect.Empty.Size)
+                        _RotatedRect = Emgu.CV.CvInvoke.FitEllipse(Points);
+                    return _RotatedRect;
+                }
+            }
+            RotatedRect _RotatedRect = RotatedRect.Empty;
+
+            public float Length
+            {
+                get
+                {
+                    if (_Length < 0)
+                        _Length = Math.Max(RotatedRect.Size.Width, RotatedRect.Size.Height);
+                    return _Length;
+                }
+            }
+            float _Length = -1;
+
+            public double Area
+            {
+                get
+                {
+                    if (_Area<0)
+                        _Area = Emgu.CV.CvInvoke.ContourArea(Points);
+                    return _Area;
+                }
+            }
+            double _Area = -1;
+        }
+
+        //static private void get
+
 
         static private Bitmap drawContours(Image<Gray, byte> image, VectorOfVectorOfPoint contours)
         {
@@ -97,15 +207,6 @@ namespace testImageDetection
             Emgu.CV.CvInvoke.Threshold(image, image, 60, 255, ThresholdType.Otsu | ThresholdType.Binary);
             //Emgu.CV.CvInvoke.Erode(image, image, null, new Point(-1, -1), 1, BorderType.Constant, CvInvoke.MorphologyDefaultBorderValue);
             //CvInvoke.Dilate(image, image, null, new Point(-1, -1), 1, BorderType.Constant, CvInvoke.MorphologyDefaultBorderValue);
-            VectorOfVectorOfPoint contours = new VectorOfVectorOfPoint();
-            hierachy = new Mat();
-            Emgu.CV.CvInvoke.FindContours(image, contours, hierachy, RetrType.Tree, ChainApproxMethod.ChainApproxSimple);
-            return contours;
-        }
-
-        static private VectorOfVectorOfPoint getContours(string imageFile, out Mat hierachy, out Image<Gray, byte> image)
-        {
-            image = getPreprocessedImage(imageFile);
             VectorOfVectorOfPoint contours = new VectorOfVectorOfPoint();
             hierachy = new Mat();
             Emgu.CV.CvInvoke.FindContours(image, contours, hierachy, RetrType.Tree, ChainApproxMethod.ChainApproxSimple);
