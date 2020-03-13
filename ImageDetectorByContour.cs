@@ -21,7 +21,12 @@ namespace testImageDetection
         }
         ContouredImage template;
 
-        public bool FindOnPage(string pageFile)
+        public float MaxExpectedRotation=10;
+        public float MaxExpectedScale = 0.9f;
+        public float MaxCvMatchResult = 0.2f;
+        public float Threshold = 0.5f;
+
+        public List<Result> FindOnPage(string pageFile)
         {
             ContouredImage page = new ContouredImage(pageFile);
 
@@ -37,11 +42,11 @@ namespace testImageDetection
                 foreach (Contour pageC in page.RobustContours)
                 {
                     Match m = new Match(templateC, pageC);
-                    if (m.CvMatch > 0.2)
+                    if (m.CvMatch > MaxCvMatchResult)
                         continue;
-                    if (m.Angle > 10)
+                    if (m.Angle > MaxExpectedRotation)
                         continue;
-                    if (m.Scale < 0.9 || m.Scale > 1 / 0.9)
+                    if (m.Scale < MaxExpectedScale || m.Scale > 1 / MaxExpectedScale)
                         continue;
                     matches.Add(m);
                 }
@@ -62,18 +67,34 @@ namespace testImageDetection
                 if (goodMatchCollection.Count > 0)
                     goodMatchCollections.Add(goodMatchCollection);
             }
-            if (goodMatchCollections.Count > 0)
+            List<Result> results = new List<Result>();
+            foreach (List<Match> bestMatchCollection in goodMatchCollections.OrderByDescending(x => x.Count))
             {
-                List<Match> bestMatchCollection = goodMatchCollections.OrderByDescending(x => x.Count).First();
-
                 VectorOfVectorOfPoint bestMatchCollectionCvContours = new VectorOfVectorOfPoint();
                 bestMatchCollection.ForEach(x => bestMatchCollectionCvContours.Push(x.PageC.Points));
                 MainForm.This.PageBox.Image = drawContours(page.GreyImage, bestMatchCollectionCvContours);
 
-                if (bestMatchCollection.Count / template.RobustContours.Count > 0.5)
-                    return true;
+                if (bestMatchCollection.Count / template.RobustContours.Count < Threshold)
+                    break;
+
+                results.Add(new Result(new Rectangle(), bestMatchCollection[0].Angle, bestMatchCollection[0].Scale));
             }
-            return false;
+            if (results.Count > 0)
+                return results;
+            return null;
+        }
+
+        public class Result
+        {
+            public Result(Rectangle rectangle, float rotation, float scale)
+            {
+                Rectangle = rectangle;
+                Rotation = rotation;
+                Scale = scale;
+            }
+            public readonly Rectangle Rectangle;
+            public readonly float Rotation;
+            public readonly float Scale;
         }
 
         //class Matches
@@ -110,13 +131,13 @@ namespace testImageDetection
             public readonly Contour TemplateC;
             public readonly Contour PageC;
 
-            public bool IsConsiderable
-            {
-                get
-                {
-                    return CvMatch < 0.2 && Angle < 10 && Scale > 0.9 && Scale < 1 / 0.9;
-                }
-            }
+            //public bool IsConsiderable
+            //{
+            //    get
+            //    {
+            //        return CvMatch < 0.2 && Angle < 10 && Scale > 0.9 && Scale < 1 / 0.9;
+            //    }
+            //}
 
             public double CvMatch
             {
@@ -154,6 +175,7 @@ namespace testImageDetection
 
         class ContouredImage
         {
+            const int MinContourPointCount = 10;
             public ContouredImage(string imageFile)
             {
                 GreyImage = getPreprocessedImage(imageFile);
@@ -163,7 +185,7 @@ namespace testImageDetection
                 for (int i = 0; i < CvContours.Size; i++)
                     Contours.Add(new Contour(hierarchy, i, CvContours[i]));
 
-                RobustContours = Contours.Where(x => x.Points.Size >= 10).ToList();//!!!RotatedRect cannot be calculated for Points.Size < 5
+                RobustContours = Contours.Where(x => x.Points.Size >= MinContourPointCount).ToList();//!!!RotatedRect cannot be calculated for Points.Size < 5
             }
             public readonly Image<Gray, byte> GreyImage;
             public readonly VectorOfVectorOfPoint CvContours = new VectorOfVectorOfPoint();
