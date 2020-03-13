@@ -25,18 +25,15 @@ namespace testImageDetection
         {
             ContouredImage page = new ContouredImage(pageFile);
 
-            float minTemplateContourLength = Math.Max(template.GreyImage.Width, template.GreyImage.Height) / 10;
+            //float minTemplateContourLength = Math.Max(template.GreyImage.Width, template.GreyImage.Height) / 10;
 
             List<Match> matches = new List<Match>();
-            int consideredTeplateContoursCount = 0;
-            VectorOfVectorOfPoint matchedContours = new VectorOfVectorOfPoint();
             foreach (Contour templateC in template.RobustContours)//.OrderByDescending(x => x.Points.Size))
             {
                 //if (templateC.ParentId > -1)
                 //    continue;
                 //if (templateC.Length < minTemplateContourLength)
                 //    continue;
-                consideredTeplateContoursCount++;
                 foreach (Contour pageC in page.RobustContours)
                 {
                     Match m = new Match(templateC, pageC);
@@ -47,20 +44,61 @@ namespace testImageDetection
                     if (m.Scale < 0.9 || m.Scale > 1 / 0.9)
                         continue;
                     matches.Add(m);
-                    matchedContours.Push(pageC.Points);
                 }
             }
             //float currentAngle = 0;
             //float currentScale = 0;
-            //foreach(Match m in matches)
-            //{
+            List<List<Match>> goodMatchCollections = new List<List<Match>>();
+            for (int i = 0; i < matches.Count; i++)
+            {
+                List<Match> goodMatchCollection = new List<Match>();
+                goodMatchCollection.Add(matches[i]);
+                for (int j = i + 1; j < matches.Count; j++)
+                {
+                    //if(!inPlace())
+                    //continue;
+                    goodMatchCollection.Add(matches[j]);
+                }
+                if (goodMatchCollection.Count > 0)
+                    goodMatchCollections.Add(goodMatchCollection);
+            }
+            if (goodMatchCollections.Count > 0)
+            {
+                List<Match> bestMatchCollection = goodMatchCollections.OrderByDescending(x => x.Count).First();
 
-            //}
-            MainForm.This.PageBox.Image = drawContours(page.GreyImage, matchedContours);
-            if (matches.Count / consideredTeplateContoursCount > 0.5)
-                return true;
+                VectorOfVectorOfPoint bestMatchCollectionCvContours = new VectorOfVectorOfPoint();
+                bestMatchCollection.ForEach(x => bestMatchCollectionCvContours.Push(x.PageC.Points));
+                MainForm.This.PageBox.Image = drawContours(page.GreyImage, bestMatchCollectionCvContours);
+
+                if (bestMatchCollection.Count / template.RobustContours.Count > 0.5)
+                    return true;
+            }
             return false;
         }
+
+        //class Matches
+        //{
+        //    public Matches(ContouredImage template, ContouredImage page)
+        //    {
+        //        matches = new Match[template.Contours.Count, page.Contours.Count];
+        //        this.template = template;
+        //        this.page = page;
+        //    }
+        //    readonly Match[,] matches;
+        //    readonly ContouredImage template;
+        //    readonly ContouredImage page;
+
+        //    public Match this[int templateContourId, int pageContourId]
+        //    {
+        //        get
+        //        {
+        //            Match m = matches[templateContourId, pageContourId];
+        //            if (m == null)
+        //                m = new Match(template.Contours[templateContourId], page.Contours[pageContourId]);
+        //            return m;
+        //        }
+        //    }
+        //}
 
         class Match
         {
@@ -68,13 +106,19 @@ namespace testImageDetection
             {
                 TemplateC = templateC;
                 PageC = pageC;
-                
-
             }
             public readonly Contour TemplateC;
             public readonly Contour PageC;
 
-            public  double CvMatch
+            public bool IsConsiderable
+            {
+                get
+                {
+                    return CvMatch < 0.2 && Angle < 10 && Scale > 0.9 && Scale < 1 / 0.9;
+                }
+            }
+
+            public double CvMatch
             {
                 get
                 {
@@ -123,14 +167,14 @@ namespace testImageDetection
             }
             public readonly Image<Gray, byte> GreyImage;
             public readonly VectorOfVectorOfPoint CvContours = new VectorOfVectorOfPoint();
-            public readonly Mat Hierarchy=new Mat();
+            public readonly Mat Hierarchy = new Mat();
             public readonly List<Contour> Contours = new List<Contour>();
             public readonly List<Contour> RobustContours;
         }
 
         class Contour
         {
-            public Contour(Array hierarchy, int i,VectorOfPoint points)
+            public Contour(Array hierarchy, int i, VectorOfPoint points)
             {
                 I = i;
                 Points = points;
@@ -181,7 +225,7 @@ namespace testImageDetection
             {
                 get
                 {
-                    if (_Area<0)
+                    if (_Area < 0)
                         _Area = Emgu.CV.CvInvoke.ContourArea(Points);
                     return _Area;
                 }
