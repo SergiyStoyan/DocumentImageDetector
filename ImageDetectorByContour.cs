@@ -21,80 +21,140 @@ namespace testImageDetection
         }
         ContouredImage template;
 
-        public float MaxExpectedRotation=10;
-        public float MaxExpectedScale = 0.9f;
-        public float MaxCvMatchResult = 0.2f;
+        public float MaxExpectedRotationDeviation = 20;
+        public float MaxExpectedScaleDeviation = 0.9f;
+        public float MaxCvMatchResult = 0.4f;
         public float Threshold = 0.5f;
 
-        public List<Result> FindOnPage(string pageFile)
+        public List<Result> FindOnPage(string pageFile, bool allMatches = true)
         {
+            List<Result> results = new List<Result>();
             ContouredImage page = new ContouredImage(pageFile);
-
             //float minTemplateContourLength = Math.Max(template.GreyImage.Width, template.GreyImage.Height) / 10;
 
-            List<Match> matches = new List<Match>();
-            foreach (Contour templateC in template.RobustContours)//.OrderByDescending(x => x.Points.Size))
+            if (allMatches)
             {
-                //if (templateC.ParentId > -1)
-                //    continue;
-                //if (templateC.Length < minTemplateContourLength)
-                //    continue;
-                foreach (Contour pageC in page.RobustContours)
+                List<Match> matches = new List<Match>();
+                foreach (Contour templateContour in template.RobustContours)
                 {
-                    Match m = new Match(templateC, pageC);
-                    if (m.CvMatch > MaxCvMatchResult)
-                        continue;
-                    if (m.Angle > MaxExpectedRotation)
-                        continue;
-                    if (m.Scale < MaxExpectedScale || m.Scale > 1 / MaxExpectedScale)
-                        continue;
-                    matches.Add(m);
+                    foreach (Contour pageContour in page.RobustContours)
+                    {
+                        Match m = new Match(templateContour, pageContour);
+                        if (m.CvMatch > MaxCvMatchResult)
+                            continue;
+                        if (Math.Abs(m.Page2Template180InvariantRotation) > MaxExpectedRotationDeviation)
+                            continue;
+                        if (Math.Abs(m.Page2TemplateScale - 1) > MaxExpectedScaleDeviation)
+                            continue;
+                        matches.Add(m);
+                    }
+                }
+                foreach (Match m in matches)
+                {
+                    List<Match> matchPossibleCollection = new List<Match>();
+                    matchPossibleCollection.Add(m);
+
+                    foreach (Contour tc in template.RobustContours)
+                    {
+                        if (tc == m.TemplateContour)
+                            continue;
+                        const float padding = 0.3f;
+                        RotatedRect expectedRotatedRect = new RotatedRect(
+                            new PointF(tc.RotatedRect.Center.X * m.Page2TemplateScale, tc.RotatedRect.Center.Y * m.Page2TemplateScale),
+                            new SizeF(tc.RectangleF.Width * (m.Page2TemplateScale + padding), tc.RectangleF.Height * (m.Page2TemplateScale + padding)),
+                            tc.Angle
+                            );
+                        VectorOfPointF ps = new VectorOfPointF(expectedRotatedRect.GetVertices());
+                        Match m2 = matches.FirstOrDefault(x => x.TemplateContour == tc
+                            && Math.Abs(x.Page2TemplateScale - m.Page2TemplateScale) < 0.2f
+                            && CvInvoke.PointPolygonTest(ps, x.PageContour.RotatedRectPoints[0], false) > 0
+                            && CvInvoke.PointPolygonTest(ps, x.PageContour.RotatedRectPoints[1], false) > 0
+                            && CvInvoke.PointPolygonTest(ps, x.PageContour.RotatedRectPoints[2], false) > 0
+                            && CvInvoke.PointPolygonTest(ps, x.PageContour.RotatedRectPoints[3], false) > 0
+                        );
+                        if (m2 != null)
+                            matchPossibleCollection.Add(m2);
+                    }
+                    results.Add(CreateResult(template, matchPossibleCollection));
+                }
+                results = results.OrderByDescending(x => x.MatchCollection.Count).ToList();
+                //if ( < Threshold)
+                //    break;
+                if (results.Count > 0)
+                {
+                    results = results.Where(x => x.MatchCollection.Count > 1).ToList();
+                    VectorOfVectorOfPoint bestMatchCollectionCvContours = new VectorOfVectorOfPoint();
+                    results.ForEach(x => bestMatchCollectionCvContours.Push(new VectorOfPoint(x.RotatedRect.GetVertices().Select(y=>new Point((int)y.X, (int)y.Y)).ToArray())));
+                    MainForm.This.PageBox.Image = drawContours(page.GreyImage, bestMatchCollectionCvContours);
                 }
             }
-            //float currentAngle = 0;
-            //float currentScale = 0;
-            List<List<Match>> goodMatchCollections = new List<List<Match>>();
-            for (int i = 0; i < matches.Count; i++)
+            else
             {
-                List<Match> goodMatchCollection = new List<Match>();
-                goodMatchCollection.Add(matches[i]);
-                for (int j = i + 1; j < matches.Count; j++)
-                {
-                    //if(!inPlace())
-                    //continue;
-                    goodMatchCollection.Add(matches[j]);
-                }
-                if (goodMatchCollection.Count > 0)
-                    goodMatchCollections.Add(goodMatchCollection);
-            }
-            List<Result> results = new List<Result>();
-            foreach (List<Match> bestMatchCollection in goodMatchCollections.OrderByDescending(x => x.Count))
-            {
-                VectorOfVectorOfPoint bestMatchCollectionCvContours = new VectorOfVectorOfPoint();
-                bestMatchCollection.ForEach(x => bestMatchCollectionCvContours.Push(x.PageC.Points));
-                MainForm.This.PageBox.Image = drawContours(page.GreyImage, bestMatchCollectionCvContours);
-
-                if (bestMatchCollection.Count / template.RobustContours.Count < Threshold)
-                    break;
-
-                results.Add(new Result(new Rectangle(), bestMatchCollection[0].Angle, bestMatchCollection[0].Scale));
+                throw new Exception("TBD");
             }
             if (results.Count > 0)
+            {
                 return results;
+            }
             return null;
         }
 
+        static ImageDetectorByContour()
+        {
+            Result.Initialize();
+        }
+        private static Func<ContouredImage, List<Match>, Result> CreateResult;//to keep Result constructor hidden
+
         public class Result
         {
-            public Result(Rectangle rectangle, float rotation, float scale)
+            internal static void Initialize()
             {
-                Rectangle = rectangle;
-                Rotation = rotation;
-                Scale = scale;
+                CreateResult = Create;
             }
-            public readonly Rectangle Rectangle;
+            static Result Create(ContouredImage template, List<Match> goodMatchCollection)
+            {
+                return new Result( template, goodMatchCollection);
+            }
+
+            Result(ContouredImage template, List<Match> goodMatchCollection)
+            {
+                this.template = template;
+                MatchCollection = goodMatchCollection;
+                Rotation = goodMatchCollection[0].Page2Template180InvariantRotation;
+                Scale = goodMatchCollection[0].Page2TemplateScale;
+            }
+            readonly ContouredImage template;
+
+            public readonly List<Match> MatchCollection;
             public readonly float Rotation;
             public readonly float Scale;
+
+            public float Goodness
+            {
+                get
+                {
+                    if (_Goodness < 0)
+                        _Goodness = (float)MatchCollection.Count / template.RobustContours.Count;
+                    return _Goodness;
+                }
+            }
+            float _Goodness = -1;
+
+            public RotatedRect RotatedRect
+            {
+                get
+                {
+                    if (_RotatedRect.Size == RotatedRect.Empty.Size)
+                    {
+                        VectorOfPoint ps = new VectorOfPoint();
+                        foreach (Match m in MatchCollection)
+                            ps.Push(m.PageContour.Points);
+                        _RotatedRect = CvInvoke.MinAreaRect(ps);
+                    }
+                    return _RotatedRect;
+                }
+            }
+            RotatedRect _RotatedRect = RotatedRect.Empty;
         }
 
         //class Matches
@@ -121,15 +181,15 @@ namespace testImageDetection
         //    }
         //}
 
-        class Match
+        public class Match
         {
-            public Match(Contour templateC, Contour pageC)
+            public Match(Contour templateContour, Contour pageContour)
             {
-                TemplateC = templateC;
-                PageC = pageC;
+                TemplateContour = templateContour;
+                PageContour = pageContour;
             }
-            public readonly Contour TemplateC;
-            public readonly Contour PageC;
+            public readonly Contour TemplateContour;
+            public readonly Contour PageContour;
 
             //public bool IsConsiderable
             //{
@@ -144,29 +204,35 @@ namespace testImageDetection
                 get
                 {
                     if (_CvMatch == double.MinValue)
-                        _CvMatch = Emgu.CV.CvInvoke.MatchShapes(TemplateC.Points, PageC.Points, ContoursMatchType.I2);
+                        _CvMatch = Emgu.CV.CvInvoke.MatchShapes(TemplateContour.Points, PageContour.Points, ContoursMatchType.I2);
                     return _CvMatch;
                 }
             }
             double _CvMatch = double.MinValue;
 
-            public float Angle
+            public float Page2Template180InvariantRotation//some contours are detected as if overturned
             {
                 get
                 {
-                    if (_Angle == float.MinValue)
-                        _Angle = Math.Abs(TemplateC.RotatedRect.Angle - PageC.RotatedRect.Angle);
-                    return _Angle;
+                    if (_Rotation == float.MinValue)
+                    {
+                        _Rotation = PageContour.RotatedRect.Angle - TemplateContour.RotatedRect.Angle;
+                        //if (_Rotation > 90)
+                        //    _Rotation -= 180;
+                        //else if (_Rotation < -90)
+                        //    _Rotation += 180;
+                    }
+                    return _Rotation;
                 }
             }
-            float _Angle = float.MinValue;
+            float _Rotation = float.MinValue;
 
-            public float Scale
+            public float Page2TemplateScale
             {
                 get
                 {
                     if (_Scale == float.MinValue)
-                        _Scale = TemplateC.Length / PageC.Length;
+                        _Scale = PageContour.Length / TemplateContour.Length;
                     return _Scale;
                 }
             }
@@ -179,7 +245,14 @@ namespace testImageDetection
             public ContouredImage(string imageFile)
             {
                 GreyImage = getPreprocessedImage(imageFile);
-                Emgu.CV.CvInvoke.FindContours(GreyImage, CvContours, Hierarchy, RetrType.Tree, ChainApproxMethod.ChainApproxSimple);
+                //!!!try to make more primitive
+                //Mat tmp = grey.clone();
+                //morphologyEx(tmp, tmp, MORPH_GRADIENT, getStructuringElement(MORPH_ELLIPSE, Size(3, 3)));
+                //bitwise_not(tmp, tmp);
+                //!!!try to smooth
+                //epsilon = 0.1 * cv.arcLength(cnt, True)
+                //approx = cv.approxPolyDP(cnt, epsilon, True)
+                Emgu.CV.CvInvoke.FindContours(GreyImage, CvContours, Hierarchy, RetrType.List, ChainApproxMethod.ChainApproxSimple);
 
                 Array hierarchy = Hierarchy.GetData();
                 for (int i = 0; i < CvContours.Size; i++)
@@ -190,11 +263,32 @@ namespace testImageDetection
             public readonly Image<Gray, byte> GreyImage;
             public readonly VectorOfVectorOfPoint CvContours = new VectorOfVectorOfPoint();
             public readonly Mat Hierarchy = new Mat();
-            public readonly List<Contour> Contours = new List<Contour>();
+            readonly List<Contour> Contours = new List<Contour>();
             public readonly List<Contour> RobustContours;
+
+            static private Image<Gray, byte> getPreprocessedImage2(string imageFile)
+            {
+                Image<Gray, byte> image = new Image<Gray, byte>(imageFile);
+                Emgu.CV.CvInvoke.Blur(image, image, new Size(10, 10), new Point(0, 0));
+                //Emgu.CV.CvInvoke.Threshold(image, image, 60, 255, ThresholdType.Otsu | ThresholdType.Binary);
+                //Emgu.CV.CvInvoke.Erode(image, image, null, new Point(-1, -1), 1, BorderType.Constant, CvInvoke.MorphologyDefaultBorderValue);
+                //CvInvoke.Dilate(image, image, null, new Point(-1, -1), 1, BorderType.Constant, CvInvoke.MorphologyDefaultBorderValue);
+                CvInvoke.Canny(image, image, 100, 30, 3);
+                return image;
+            }
+
+            static private Image<Gray, byte> getPreprocessedImage(string imageFile)
+            {
+                Image<Gray, byte> image = new Image<Gray, byte>(imageFile);
+                Emgu.CV.CvInvoke.Blur(image, image, new Size(3, 3), new Point(0, 0));
+                Emgu.CV.CvInvoke.Threshold(image, image, 125, 255, ThresholdType.Otsu | ThresholdType.Binary);
+                Emgu.CV.CvInvoke.Erode(image, image, null, new Point(-1, -1), 1, BorderType.Constant, CvInvoke.MorphologyDefaultBorderValue);
+                CvInvoke.Dilate(image, image, null, new Point(-1, -1), 1, BorderType.Constant, CvInvoke.MorphologyDefaultBorderValue);
+                return image;
+            }
         }
 
-        class Contour
+        public class Contour
         {
             public Contour(Array hierarchy, int i, VectorOfPoint points)
             {
@@ -220,6 +314,33 @@ namespace testImageDetection
             public readonly int PreviousSiblingId = 1;
             public readonly int FirstChildId = 2;
             public readonly int ParentId = 3;
+
+            public float Angle
+            {
+                get
+                {
+                    if (_Angle < -400)
+                    {
+                        if (RotatedRect.Size.Width > RotatedRect.Size.Height)
+                            _Angle = 90 + RotatedRect.Angle;
+                        else
+                            _Angle = RotatedRect.Angle;
+                    }
+                    return _Angle;
+                }
+            }
+            float _Angle = -401;
+
+            public PointF[] RotatedRectPoints
+            {
+                get
+                {
+                    if (_RotatedRectPoints==null)
+                        _RotatedRectPoints = RotatedRect.GetVertices();
+                    return _RotatedRectPoints;
+                }
+            }
+            PointF[] _RotatedRectPoints = null;
 
             public RotatedRect RotatedRect
             {
@@ -253,10 +374,18 @@ namespace testImageDetection
                 }
             }
             double _Area = -1;
+
+            public RectangleF RectangleF
+            {
+                get
+                {
+                    if (_RectangleF == Rectangle.Empty)
+                        _RectangleF = RotatedRect.MinAreaRect();
+                    return _RectangleF;
+                }
+            }
+            RectangleF _RectangleF = RectangleF.Empty;
         }
-
-        //static private void get
-
 
         static private Bitmap drawContours(Image<Gray, byte> image, VectorOfVectorOfPoint contours)
         {
@@ -264,30 +393,6 @@ namespace testImageDetection
             Emgu.CV.CvInvoke.CvtColor(image, image2, Emgu.CV.CvEnum.ColorConversion.Gray2Rgb);
             Emgu.CV.CvInvoke.DrawContours(image2, contours, -1, new MCvScalar(255, 0, 0), 1);
             return image2.ToBitmap();
-        }
-
-        static private VectorOfVectorOfPoint getContours2(string imageFile, out Mat hierachy, out Image<Gray, byte> image)//good!
-        {
-            image = new Image<Gray, byte>(imageFile);
-            Emgu.CV.CvInvoke.Blur(image, image, new Size(10, 10), new Point(0, 0));
-            Emgu.CV.CvInvoke.Threshold(image, image, 60, 255, ThresholdType.Otsu | ThresholdType.Binary);
-            //Emgu.CV.CvInvoke.Erode(image, image, null, new Point(-1, -1), 1, BorderType.Constant, CvInvoke.MorphologyDefaultBorderValue);
-            //CvInvoke.Dilate(image, image, null, new Point(-1, -1), 1, BorderType.Constant, CvInvoke.MorphologyDefaultBorderValue);
-            VectorOfVectorOfPoint contours = new VectorOfVectorOfPoint();
-            hierachy = new Mat();
-            Emgu.CV.CvInvoke.FindContours(image, contours, hierachy, RetrType.Tree, ChainApproxMethod.ChainApproxSimple);
-            return contours;
-        }
-
-        static private Image<Gray, byte> getPreprocessedImage(string imageFile)
-        {
-            Image<Gray, byte> image = new Image<Gray, byte>(imageFile);
-            //Emgu.CV.CvInvoke.Blur(image, image, new Size(10, 10), new Point(0, 0));
-            //Emgu.CV.CvInvoke.Threshold(image, image, 60, 255, ThresholdType.Otsu | ThresholdType.Binary);
-            //Emgu.CV.CvInvoke.Erode(image, image, null, new Point(-1, -1), 1, BorderType.Constant, CvInvoke.MorphologyDefaultBorderValue);
-            CvInvoke.Dilate(image, image, null, new Point(-1, -1), 1, BorderType.Constant, CvInvoke.MorphologyDefaultBorderValue);
-            CvInvoke.Canny(image, image, 100, 30, 3);
-            return image;
         }
     }
 }

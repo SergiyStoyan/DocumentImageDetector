@@ -23,7 +23,7 @@ namespace testImageDetection
 
             Load += delegate {
                 ImageDetectorByContour idbc = new ImageDetectorByContour(@"c:\\temp\bt.png");
-                idbc.FindOnPage(@"c:\\temp\b.png");
+                idbc.FindOnPage(@"c:\\temp\b2.png");
                 //ImageDetectorByKeyPoints.FindMatch(@"c:\\temp\pp3.png", @"c:\\temp\ppt.png");
                 //ImageDetectorByTemplate.FindMatch(@"c:\\temp\b.png", @"c:\\temp\bt.png");
             };
