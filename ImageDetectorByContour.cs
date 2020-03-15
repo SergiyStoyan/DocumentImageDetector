@@ -65,12 +65,14 @@ namespace testImageDetection
                             tc.Angle
                             );
                         VectorOfPointF ps = new VectorOfPointF(expectedRotatedRect.GetVertices());
-                        Match m2 = matches.FirstOrDefault(x => x.TemplateContour == tc
+                        Match m2 = matches.FirstOrDefault(x =>
+                            x != m
+                            && x.TemplateContour == tc
                             && Math.Abs(x.Page2TemplateScale - m.Page2TemplateScale) < 0.2f
-                            && CvInvoke.PointPolygonTest(ps, x.PageContour.RotatedRectPoints[0], false) > 0
-                            && CvInvoke.PointPolygonTest(ps, x.PageContour.RotatedRectPoints[1], false) > 0
-                            && CvInvoke.PointPolygonTest(ps, x.PageContour.RotatedRectPoints[2], false) > 0
-                            && CvInvoke.PointPolygonTest(ps, x.PageContour.RotatedRectPoints[3], false) > 0
+                            //&& CvInvoke.PointPolygonTest(ps, x.PageContour.RotatedRectPoints[0], false) > 0
+                            //&& CvInvoke.PointPolygonTest(ps, x.PageContour.RotatedRectPoints[1], false) > 0
+                            //&& CvInvoke.PointPolygonTest(ps, x.PageContour.RotatedRectPoints[2], false) > 0
+                            //&& CvInvoke.PointPolygonTest(ps, x.PageContour.RotatedRectPoints[3], false) > 0
                         );
                         if (m2 != null)
                             matchPossibleCollection.Add(m2);
@@ -82,9 +84,10 @@ namespace testImageDetection
                 //    break;
                 if (results.Count > 0)
                 {
-                    results = results.Where(x => x.MatchCollection.Count > 1).ToList();
+                    results = results.Where(x => x.MatchCollection.Count > 15).ToList();
                     VectorOfVectorOfPoint bestMatchCollectionCvContours = new VectorOfVectorOfPoint();
-                    results.ForEach(x => bestMatchCollectionCvContours.Push(new VectorOfPoint(x.RotatedRect.GetVertices().Select(y=>new Point((int)y.X, (int)y.Y)).ToArray())));
+                    //results.ForEach(x => bestMatchCollectionCvContours.Push(new VectorOfPoint(x.RotatedRect.GetVertices().Select(y => new Point((int)y.X, (int)y.Y)).ToArray())));
+                    results.ForEach(x => x.MatchCollection.ForEach(a=> bestMatchCollectionCvContours.Push(a.PageContour.Points)));
                     MainForm.This.PageBox.Image = drawContours(page.GreyImage, bestMatchCollectionCvContours);
                 }
             }
