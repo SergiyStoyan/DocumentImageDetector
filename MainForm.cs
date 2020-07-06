@@ -22,11 +22,11 @@ namespace testImageDetection
             InitializeComponent();
 
             Load += delegate {
-                //ImageDetectorByContour idbc = new ImageDetectorByContour(@"c:\\temp\bt.png");
-                //idbc.FindOnPage(@"c:\\temp\b2.png");
+                //ImageDetectorByContour idbc = new ImageDetectorByContour(@"c:\\temp\t1.png");
+                //idbc.FindOnPage(@"c:\\temp\test1.png");
                 //ImageDetectorByKeyPoints.FindMatch(@"c:\\temp\pp3.png", @"c:\\temp\ppt.png");
                 //ImageDetectorByTemplate.FindMatch(@"c:\\temp\test1.png", @"c:\\temp\t1.png");
-                ImageDetectorByTemplate.FindMatchs(@"c:\\temp\test1.png", @"c:\\temp\t1.png", new Size(10,10));
+                ImageDetectorByTemplate.FindMatches(@"c:\\temp\test1.png", @"c:\\temp\t1.png", new Size(20,20));
             };
         }
 

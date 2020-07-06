@@ -40,7 +40,7 @@ namespace testImageDetection
             return result;
         }
 
-        static public void FindMatchs(string pageFile, string templateFile, Size padding)
+        static public void FindMatches(string pageFile, string templateFile, Size padding)
         {
             Image<Rgb, byte> pageRgbImage = new Image<Rgb, byte>(pageFile);
             Image<Rgb, byte> templateRgbImage = new Image<Rgb, byte>(templateFile);
@@ -51,26 +51,34 @@ namespace testImageDetection
                     using (Image<Gray, float> match = pageImage.MatchTemplate(templateImage, TemplateMatchingType.CcoeffNormed))
                     {
                         float[,,] matches = match.Data;
-                        List<Rectangle> matchRs = new List<Rectangle>();
+                        Dictionary<Rectangle, Match> paddedMatchRs2bestMatchP = new Dictionary<Rectangle, Match>();
+
                         for (int x = matches.GetLength(1) - 1; x >= 0; x--)
                         {
                             for (int y = matches.GetLength(0) - 1; y >= 0; y--)
                             {
-                                double matchScore = matches[y, x, 0];
-                                if (matchScore > 0.91)
+                                double score = matches[y, x, 0];
+                                //if (score < 0.003)//SqdiffNormed
+                                if (score > 0.70)//CcoeffNormed
                                 {
                                     Rectangle r = new Rectangle(new Point(x, y), templateImage.Size);
-                                    var d = matchRs.FirstOrDefault(a => a.Contains(r));
-                                    if (matchRs.FirstOrDefault(a => a.Contains(r)) == Rectangle.Empty)
+                                    var kv = paddedMatchRs2bestMatchP.FirstOrDefault(a => a.Key.Contains(r));
+                                    if (kv.Key == Rectangle.Empty)
                                     {
-                                        pageRgbImage.Draw(r, new Rgb(255, 0, 0), 1);
-                                        r.Inflate(padding);
-                                        matchRs.Add(r);
+                                        Rectangle ar = new Rectangle(r.Location, r.Size);
+                                        ar.Inflate(padding);
+                                        paddedMatchRs2bestMatchP[ar] = new Match { Rectangle = r, Score = score };
+                                    }
+                                    else
+                                    {
+                                        if (kv.Value.Score < score)
+                                            paddedMatchRs2bestMatchP[kv.Key] = new Match { Rectangle = r, Score = score };
                                     }
                                 }
-
                             }
                         }
+                        foreach (Match m in paddedMatchRs2bestMatchP.Values)
+                            pageRgbImage.Draw(m.Rectangle, new Rgb(255, 0, 0), 1);
                     }
                 }
             }
@@ -78,10 +86,16 @@ namespace testImageDetection
             MainForm.This.TemplateBox.Image = templateRgbImage.ToBitmap();
         }
 
+        class Match
+        {
+            public Rectangle Rectangle;
+            public double Score;
+        }
+
         static private Image<Gray, byte> getPreprocessedImage(string imageFile)
         {
             Image<Gray, byte> image = new Image<Gray, byte>(imageFile);
-            Emgu.CV.CvInvoke.Blur(image, image, new Size(10, 10), new Point(0, 0));
+            //Emgu.CV.CvInvoke.Blur(image, image, new Size(10, 10), new Point(0, 0));
             //Emgu.CV.CvInvoke.Threshold(image, image, 60, 255, ThresholdType.Otsu | ThresholdType.Binary);
             //Emgu.CV.CvInvoke.Erode(image, image, null, new Point(-1, -1), 1, BorderType.Constant, CvInvoke.MorphologyDefaultBorderValue);
             //CvInvoke.Dilate(image, image, null, new Point(-1, -1), 1, BorderType.Constant, CvInvoke.MorphologyDefaultBorderValue);
