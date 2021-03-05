@@ -27,7 +27,7 @@ namespace testImageDetection
                 //ImageDetectorByKeyPoints.FindMatch(@"c:\\temp\pp3.png", @"c:\\temp\ppt.png");
                 //ImageDetectorByTemplate.FindMatch(@"c:\\temp\test1.png", @"c:\\temp\t1.png");
                 //ImageDetectorByTemplate.FindMatches(@"c:\\temp\test1.png", @"c:\\temp\t1.png", new Size(20,20));
-                ImageDeskew.Deskew(@"c:\\temp\1.png");
+                ImageDeskew.Deskew(@"c:\\temp\2.png");
             };
         }
 

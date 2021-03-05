@@ -36,19 +36,36 @@ namespace testImageDetection
         static Image<Gray, byte> deskew(Image<Gray, byte> image)//good
         {//https://becominghuman.ai/how-to-automatically-deskew-straighten-a-text-image-using-opencv-a0c30aed83df
             Image<Gray, byte> image2 = new Image<Gray, byte>(image.Size);
-            CvInvoke.GaussianBlur(image, image2, new Size(9, 9), 0);
+            CvInvoke.BitwiseNot(image, image2);
+            CvInvoke.GaussianBlur(image2, image2, new Size(9, 9), 0);
             CvInvoke.Threshold(image2, image2, 0, 255, ThresholdType.Otsu | ThresholdType.Binary);
             Mat se = CvInvoke.GetStructuringElement(ElementShape.Rectangle, new Size(30, 5), new Point(-1, -1));
             CvInvoke.Dilate(image2, image2, se, new Point(-1, -1), 5, BorderType.Constant, CvInvoke.MorphologyDefaultBorderValue);
             //Emgu.CV.CvInvoke.Erode(image, image, null, new Point(-1, -1), 1, BorderType.Constant, CvInvoke.MorphologyDefaultBorderValue);
+            //return image2;
             VectorOfVectorOfPoint contours = new VectorOfVectorOfPoint();
             Mat hierarchy = new Mat();
             CvInvoke.FindContours(image2, contours, hierarchy, RetrType.List, ChainApproxMethod.ChainApproxSimple);
             if (contours.Size < 1)
                 return null;
-            RotatedRect rr = CvInvoke.MinAreaRect(contours[0]);
+            int maxW = 0;
+            double angle = 0;
+            for (int i = 0; i < contours.Size; i++)
+            {
+                RotatedRect rr = CvInvoke.MinAreaRect(contours[i]);
+                int w = rr.MinAreaRect().Width;
+                if (maxW < w)
+                {
+                    maxW = w;
+                    angle = rr.Angle;
+                }
+            }
+            if (angle > 45)
+                angle -= 90;
+            else if (angle < -45)
+                angle += 90;
             RotationMatrix2D rotationMat = new RotationMatrix2D();
-            CvInvoke.GetRotationMatrix2D(rr.Center, 90 + rr.Angle, 1, rotationMat);
+            CvInvoke.GetRotationMatrix2D(new PointF(0, 0), angle, 1, rotationMat);
             CvInvoke.WarpAffine(image, image2, rotationMat, image.Size);
             return image2;
         }
@@ -63,10 +80,10 @@ namespace testImageDetection
             CvInvoke.GaussianBlur(image2, image2, new Size(25, 25), 5);//remove small spots
             CvInvoke.Threshold(image2, image2, 125, 255, ThresholdType.Otsu | ThresholdType.Binary);
             Mat se = CvInvoke.GetStructuringElement(ElementShape.Rectangle, new Size(5, 5), new Point(-1, -1));
-            CvInvoke.Dilate(image2, image2, se, new Point(-1, -1), 5, BorderType.Constant, CvInvoke.MorphologyDefaultBorderValue);
+            CvInvoke.Dilate(image2, image2, se, new Point(-1, -1), 1, BorderType.Constant, CvInvoke.MorphologyDefaultBorderValue);
             //CvInvoke.Erode(image2, image2, se, new Point(-1, -1), 5, BorderType.Constant, CvInvoke.MorphologyDefaultBorderValue);
 
-            CvInvoke.BitwiseNot(image2, image2);
+            //CvInvoke.BitwiseNot(image2, image2);
             //return image2.ToBitmap();
 
             VectorOfVectorOfPoint cs = new VectorOfVectorOfPoint();
@@ -117,7 +134,7 @@ namespace testImageDetection
                 deskewedimage.ROI = blockRectangle;
                 blockImage.CopyTo(deskewedimage);
                 deskewedimage.ROI = Rectangle.Empty;
-               
+                // break;
                 blockY = blockBottom + 1;
             }
             return deskewedimage.ToBitmap();
