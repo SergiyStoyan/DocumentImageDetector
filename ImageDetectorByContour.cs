@@ -12,7 +12,7 @@ using Emgu.CV.Features2D;
 
 namespace testImageDetection
 {
-    class ImageDetectorByContour
+    class ImageDetectorByContour//!!!not completed/debugged
     {
         public ImageDetectorByContour(string templateFile)
         {
@@ -61,7 +61,7 @@ namespace testImageDetection
                         const float padding = 0.3f;
                         RotatedRect expectedRotatedRect = new RotatedRect(
                             new PointF(tc.RotatedRect.Center.X * m.Page2TemplateScale, tc.RotatedRect.Center.Y * m.Page2TemplateScale),
-                            new SizeF(tc.RectangleF.Width * (m.Page2TemplateScale + padding), tc.RectangleF.Height * (m.Page2TemplateScale + padding)),
+                            new SizeF(tc.MinAreaRectF.Width * (m.Page2TemplateScale + padding), tc.MinAreaRectF.Height * (m.Page2TemplateScale + padding)),
                             tc.Angle
                             );
                         VectorOfPointF ps = new VectorOfPointF(expectedRotatedRect.GetVertices());
@@ -289,105 +289,6 @@ namespace testImageDetection
                 CvInvoke.Dilate(image, image, null, new Point(-1, -1), 1, BorderType.Constant, CvInvoke.MorphologyDefaultBorderValue);
                 return image;
             }
-        }
-
-        public class Contour
-        {
-            public Contour(Array hierarchy, int i, VectorOfPoint points)
-            {
-                I = i;
-                Points = points;
-                NextSiblingId = (int)hierarchy.GetValue(0, i, HierarchyKey.NextSibling);
-                PreviousSiblingId = (int)hierarchy.GetValue(0, i, HierarchyKey.PreviousSibling);
-                FirstChildId = (int)hierarchy.GetValue(0, i, HierarchyKey.FirstChild);
-                ParentId = (int)hierarchy.GetValue(0, i, HierarchyKey.Parent);
-            }
-            class HierarchyKey
-            {
-                public const int NextSibling = 0;
-                public const int PreviousSibling = 1;
-                public const int FirstChild = 2;
-                public const int Parent = 3;
-            }
-
-            public readonly int I;
-            public readonly VectorOfPoint Points;
-
-            public readonly int NextSiblingId = 0;
-            public readonly int PreviousSiblingId = 1;
-            public readonly int FirstChildId = 2;
-            public readonly int ParentId = 3;
-
-            public float Angle
-            {
-                get
-                {
-                    if (_Angle < -400)
-                    {
-                        if (RotatedRect.Size.Width > RotatedRect.Size.Height)
-                            _Angle = 90 + RotatedRect.Angle;
-                        else
-                            _Angle = RotatedRect.Angle;
-                    }
-                    return _Angle;
-                }
-            }
-            float _Angle = -401;
-
-            public PointF[] RotatedRectPoints
-            {
-                get
-                {
-                    if (_RotatedRectPoints==null)
-                        _RotatedRectPoints = RotatedRect.GetVertices();
-                    return _RotatedRectPoints;
-                }
-            }
-            PointF[] _RotatedRectPoints = null;
-
-            public RotatedRect RotatedRect
-            {
-                get
-                {
-                    if (_RotatedRect.Size == RotatedRect.Empty.Size)
-                        _RotatedRect = Emgu.CV.CvInvoke.FitEllipse(Points);
-                    return _RotatedRect;
-                }
-            }
-            RotatedRect _RotatedRect = RotatedRect.Empty;
-
-            public float Length
-            {
-                get
-                {
-                    if (_Length < 0)
-                        _Length = Math.Max(RotatedRect.Size.Width, RotatedRect.Size.Height);
-                    return _Length;
-                }
-            }
-            float _Length = -1;
-
-            public double Area
-            {
-                get
-                {
-                    if (_Area < 0)
-                        _Area = Emgu.CV.CvInvoke.ContourArea(Points);
-                    return _Area;
-                }
-            }
-            double _Area = -1;
-
-            public RectangleF RectangleF
-            {
-                get
-                {
-                    if (_RectangleF == Rectangle.Empty)
-                        _RectangleF = RotatedRect.MinAreaRect();
-                    return _RectangleF;
-                }
-            }
-            RectangleF _RectangleF = RectangleF.Empty;
         }
 
         static private Bitmap drawContours(Image<Gray, byte> image, VectorOfVectorOfPoint contours)
