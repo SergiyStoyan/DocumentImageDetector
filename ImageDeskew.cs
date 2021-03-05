@@ -17,7 +17,7 @@ namespace testImageDetection
         public static void Deskew(string imageFile)
         {
             ImageDeskew id = new ImageDeskew(imageFile);
-            Bitmap b = id.DeskewAsColumnOfBlocks(1000, 40);
+            Bitmap b = id.DeskewAsColumnOfBlocks(1000, 30);
             MainForm.This.PageBox.Image = b;
         }
 
@@ -40,12 +40,11 @@ namespace testImageDetection
             CvInvoke.GaussianBlur(image2, image2, new Size(9, 9), 0);
             CvInvoke.Threshold(image2, image2, 0, 255, ThresholdType.Otsu | ThresholdType.Binary);
             Mat se = CvInvoke.GetStructuringElement(ElementShape.Rectangle, new Size(30, 5), new Point(-1, -1));
-            CvInvoke.Dilate(image2, image2, se, new Point(-1, -1), 5, BorderType.Constant, CvInvoke.MorphologyDefaultBorderValue);
+            CvInvoke.Dilate(image2, image2, se, new Point(-1, -1), 1, BorderType.Constant, CvInvoke.MorphologyDefaultBorderValue);
             //Emgu.CV.CvInvoke.Erode(image, image, null, new Point(-1, -1), 1, BorderType.Constant, CvInvoke.MorphologyDefaultBorderValue);
-            //return image2;
             VectorOfVectorOfPoint contours = new VectorOfVectorOfPoint();
             Mat hierarchy = new Mat();
-            CvInvoke.FindContours(image2, contours, hierarchy, RetrType.List, ChainApproxMethod.ChainApproxSimple);
+            CvInvoke.FindContours(image2, contours, hierarchy, RetrType.External, ChainApproxMethod.ChainApproxSimple);
             if (contours.Size < 1)
                 return null;
             int maxW = 0;
@@ -53,7 +52,8 @@ namespace testImageDetection
             for (int i = 0; i < contours.Size; i++)
             {
                 RotatedRect rr = CvInvoke.MinAreaRect(contours[i]);
-                int w = rr.MinAreaRect().Width;
+                Rectangle r = rr.MinAreaRect();
+                int w = r.Width > r.Height ? r.Width : r.Height;
                 if (maxW < w)
                 {
                     maxW = w;
@@ -65,7 +65,7 @@ namespace testImageDetection
             else if (angle < -45)
                 angle += 90;
             RotationMatrix2D rotationMat = new RotationMatrix2D();
-            CvInvoke.GetRotationMatrix2D(new PointF(0, 0), angle, 1, rotationMat);
+            CvInvoke.GetRotationMatrix2D(new PointF((float)image.Width / 2, (float)image.Height / 2), angle, 1, rotationMat);
             CvInvoke.WarpAffine(image, image2, rotationMat, image.Size);
             return image2;
         }
