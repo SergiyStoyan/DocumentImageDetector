@@ -6,7 +6,7 @@
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <ProjectGuid>{B2F76629-8677-4CA2-9896-08F49BA35562}</ProjectGuid>
     <OutputType>WinExe</OutputType>
-    <RootNamespace>DocumentImageDetector</RootNamespace>
+    <RootNamespace>Cliver.testImageDetection</RootNamespace>
     <AssemblyName>DocumentImageDetector</AssemblyName>
     <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
@@ -60,7 +60,7 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="ImageDeskew.cs" />
+    <Compile Include="Deskewer.cs" />
     <Compile Include="ImageDetectorByTemplate.cs" />
     <Compile Include="ImageDetectorByKeyPoints.cs" />
     <Compile Include="MainForm.cs">

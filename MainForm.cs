@@ -8,7 +8,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
-namespace testImageDetection
+namespace Cliver.testImageDetection
 {
     public partial class MainForm : Form
     {
@@ -22,12 +22,14 @@ namespace testImageDetection
             InitializeComponent();
 
             Load += delegate {
+                Bitmap b = new Bitmap(@"c:\\temp\2.png");
                 //ImageDetectorByContour idbc = new ImageDetectorByContour(@"c:\\temp\t1.png");
                 //idbc.FindOnPage(@"c:\\temp\test1.png");
                 //ImageDetectorByKeyPoints.FindMatch(@"c:\\temp\pp3.png", @"c:\\temp\ppt.png");
                 //ImageDetectorByTemplate.FindMatch(@"c:\\temp\test1.png", @"c:\\temp\t1.png");
                 //ImageDetectorByTemplate.FindMatches(@"c:\\temp\test1.png", @"c:\\temp\t1.png", new Size(20,20));
-                ImageDeskew.Deskew(@"c:\\temp\2.png");
+                Deskewer.DeskewAsColumnOfBlocks(ref b, 1000, 30);
+                MainForm.This.PageBox.Image = b;
             };
         }
 

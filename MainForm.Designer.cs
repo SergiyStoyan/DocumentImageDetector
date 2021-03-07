@@ -1,4 +1,4 @@
-﻿namespace testImageDetection
+﻿namespace Cliver.testImageDetection
 {
     partial class MainForm
     {

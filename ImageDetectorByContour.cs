@@ -10,7 +10,7 @@ using Emgu.CV.Util;
 using System.Drawing;
 using Emgu.CV.Features2D;
 
-namespace testImageDetection
+namespace Cliver.testImageDetection
 {
     class ImageDetectorByContour//!!!not completed/debugged
     {
@@ -61,7 +61,7 @@ namespace testImageDetection
                         const float padding = 0.3f;
                         RotatedRect expectedRotatedRect = new RotatedRect(
                             new PointF(tc.RotatedRect.Center.X * m.Page2TemplateScale, tc.RotatedRect.Center.Y * m.Page2TemplateScale),
-                            new SizeF(tc.MinAreaRectF.Width * (m.Page2TemplateScale + padding), tc.MinAreaRectF.Height * (m.Page2TemplateScale + padding)),
+                            new SizeF(tc.MinAreaRectangle.Width * (m.Page2TemplateScale + padding), tc.MinAreaRectangle.Height * (m.Page2TemplateScale + padding)),
                             tc.Angle
                             );
                         VectorOfPointF ps = new VectorOfPointF(expectedRotatedRect.GetVertices());

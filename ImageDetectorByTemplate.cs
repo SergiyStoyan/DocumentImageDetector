@@ -10,7 +10,7 @@ using Emgu.CV.Util;
 using System.Drawing;
 using Emgu.CV.Features2D;
 
-namespace testImageDetection
+namespace Cliver.testImageDetection
 {
     class ImageDetectorByTemplate
     {
