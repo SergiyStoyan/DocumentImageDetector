@@ -9,11 +9,36 @@ using Emgu.CV.Structure;
 using Emgu.CV.Util;
 using System.Drawing;
 using Emgu.CV.Features2D;
+using System.Text.RegularExpressions;
 
 namespace Cliver.testImageDetection
 {
     class ImageDetectorByTemplate
     {
+        static public void Clear(ref Bitmap bitmap)
+        {
+            using (Image<Gray, byte> image = bitmap.ToImage<Gray, byte>())
+            //using (Image<Rgb, byte> image = bitmap.ToImage<Rgb, byte>())
+            {
+                bitmap.Dispose();
+                var i = image;
+
+                //i._EqualizeHist();
+                //i._GammaCorrect(0.2);
+
+                CvInvoke.BitwiseNot(i, i);
+                //i = i.ThresholdBinary(new Gray(255), new Gray(255));
+                i = i.ThresholdToZero(new Gray(100));
+                CvInvoke.BitwiseNot(i, i);
+                //i = i.ThresholdAdaptive(new Rgb(255, 255, 255), AdaptiveThresholdType.GaussianC, ThresholdType.Binary, 155, new Rgb(30, 30, 30));
+                //i = i.ThresholdAdaptive(new Gray(200), AdaptiveThresholdType.GaussianC, ThresholdType.Binary, 5, new Gray(3));
+                //CvInvoke.AdaptiveThreshold(i, i, 255, AdaptiveThresholdType.GaussianC, ThresholdType.Binary, 55, 30);
+                //CvInvoke.Dilate(i, i, null, new Point(-1, -1), 1, BorderType.Constant, CvInvoke.MorphologyDefaultBorderValue);
+                bitmap = i.ToBitmap();
+                //pageRgbImage.Save(Regex.Replace(pageFile, @"","", RegexOptions.IgnoreCase);
+            }
+        }
+
         static public bool FindMatch(string pageFile, string templateFile)
         {
             Image<Rgb, byte> pageRgbImage = new Image<Rgb, byte>(pageFile);

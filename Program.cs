@@ -19,6 +19,8 @@ namespace Cliver.testImageDetection
             // bool t = DetectSimilarImage();
             //  FindMatch(@"c:\\temp\pp2.png", @"c:\\temp\ppt.png");
 
+
+
             MainForm.This.ShowDialog();
         }
     }
